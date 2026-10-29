@@ -163,13 +163,13 @@ async def api_predict(req: PredictRequest):
     X_vec = vectorizer.transform([clean_text])
 
     primary_model = models[chosen_name]
-    pred = int(primary_model.predict(X_vec)[0])
     spam_prob = float(primary_model.predict_proba(X_vec)[0][1])
+    pred = 1 if spam_prob > 0.86 else 0
 
     consensus = []
     for m_name, m_obj in models.items():
-        p_i = int(m_obj.predict(X_vec)[0])
         prob_i = float(m_obj.predict_proba(X_vec)[0][1])
+        p_i = 1 if prob_i > 0.86 else 0
         consensus.append(
             {
                 "model": m_name,

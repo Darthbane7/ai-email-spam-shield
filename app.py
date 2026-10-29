@@ -167,11 +167,11 @@ def main():
                 X_vec = vectorizer.transform([clean_text])
 
                 model = models[selected_model_name]
-                prediction = int(model.predict(X_vec)[0])
                 proba = model.predict_proba(X_vec)[0]
                 spam_prob = float(proba[1])
+                prediction = 1 if spam_prob > 0.86 else 0
 
-                st.subheader("Prediction Result")
+                st.subheader("Prediction Result (Threshold: > 86% Confidence)")
                 res_col1, res_col2 = st.columns([2, 1])
 
                 with res_col1:

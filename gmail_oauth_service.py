@@ -477,8 +477,8 @@ def scan_user_gmail_oauth(
 
         clean_text = preprocess_text(combined)
         X_vec = vectorizer.transform([clean_text])
-        pred = int(model.predict(X_vec)[0])
         spam_prob = float(model.predict_proba(X_vec)[0][1])
+        pred = 1 if spam_prob > 0.86 else 0
 
         action_taken = "Kept in Inbox (Ham)"
         if pred == 1:
