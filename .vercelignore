@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+data/
+app.py
+gmail_watcher.py
+train_model.py
+requirements-local.txt
