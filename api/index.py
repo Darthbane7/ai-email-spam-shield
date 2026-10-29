@@ -16,6 +16,7 @@ import hmac
 import os
 import sys
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -39,8 +40,47 @@ from preprocessing import preprocess_steps_breakdown
 
 app = FastAPI(
     title="AI Email Spam Filter SaaS (Google OAuth2 + Android Sync)",
-    version="2.0.0",
+    version="2.0.1",
 )
+
+
+class VercelPathRewriteMiddleware:
+    """
+    Normalizes incoming paths when Vercel rewrites `/(.*)` to `/api/index.py?__path=/$1`
+    or `/api/index.py`, ensuring FastAPI routes match on both Vercel and localhost.
+    """
+
+    def __init__(self, asgi_app):
+        self.asgi_app = asgi_app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") in ("http", "websocket"):
+            raw_qs = scope.get("query_string", b"").decode("utf-8", errors="ignore")
+            if "__path=" in raw_qs:
+                pairs = parse_qsl(raw_qs, keep_blank_values=True)
+                rewritten_path = None
+                remaining_pairs = []
+                for k, v in pairs:
+                    if k == "__path" and rewritten_path is None:
+                        rewritten_path = v
+                    else:
+                        remaining_pairs.append((k, v))
+                if rewritten_path:
+                    if not rewritten_path.startswith("/"):
+                        rewritten_path = "/" + rewritten_path
+                    scope = dict(scope)
+                    scope["path"] = rewritten_path
+                    scope["raw_path"] = rewritten_path.encode("utf-8")
+                    scope["query_string"] = urlencode(remaining_pairs).encode("utf-8")
+            elif scope.get("path") in ("/api/index.py", "/api/index"):
+                scope = dict(scope)
+                scope["path"] = "/"
+                scope["raw_path"] = b"/"
+
+        await self.asgi_app(scope, receive, send)
+
+
+app.add_middleware(VercelPathRewriteMiddleware)
 
 SESSION_SECRET = os.getenv("SESSION_SECRET", "ai-spam-filter-free-saas-secret-key-2026")
 
@@ -707,5 +747,7 @@ FRONTEND_HTML = """<!DOCTYPE html>
 
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/api/index", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/api/index.py", response_class=HTMLResponse, include_in_schema=False)
 async def serve_dashboard():
     return HTMLResponse(content=FRONTEND_HTML)
